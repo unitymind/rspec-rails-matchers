@@ -8,15 +8,16 @@ module RspecRailsMatchers
           match do |model|
             if validator = model.class.validators.find(Proc.new {false}) { |v| v.to_s.demodulize =~ /^UniquenessValidator/ &&
                 v.attributes.include?(_attr_) }
-              actual_options = validator.options
-              validator.options.deep_include?(options) && validator.options.keys.sort == options.keys.sort
+              options_unfrozen = validator.options.dup.delete_if { |k| [:if, :unless].include? k}
+              actual_options = options_unfrozen
+              options_unfrozen.deep_include?(options) && options_unfrozen.keys.sort == options.keys.sort
             end
           end
 
           failure_message_for_should do |model|
             RspecRailsMatchers::Message.error(
-              :expected => [ "%s to validate uniqueness of %s, %s", model, _attr_, options ],
-              :actual   => [ "%s to validate uniqueness of %s, %s", model, _attr_, actual_options]
+              :expected => [ "%s should validate uniqueness of %s with %s", model, _attr_, options ],
+              :actual   => [ "%s has validate uniqueness of %s with %s", model, _attr_, actual_options]
             )
           end
         end
