@@ -1,60 +1,49 @@
 module RspecRailsMatchers
   module Validations
     module LengthOf
-      def validate_length_of(attribute, options)
-        options.assert_valid_keys( :within, :minimum, :maximum )
-          
-        min, max = min_max_for(options)
-        
-        Rspec::Matchers::Matcher.new :validate_length_of, attribute do |_attribute_|
+      def validate_length_of(attribute, options = {})
+#        options.assert_valid_keys( :within, :minimum, :maximum )
+
+        # Copy-paste from active_model/validations/length.rb:13
+        if range = (options.delete(:in) || options.delete(:within))
+          raise ArgumentError, ":in and :within must be a Range" unless range.is_a?(Range)
+          options[:minimum], options[:maximum] = range.begin, range.end
+          options[:maximum] -= 1 if range.exclude_end?
+        end
+
+        if (ActiveModel::Validations::LengthValidator::CHECKS.keys & options.keys).empty?
+          raise ArgumentError, 'Range unspecified. Specify the :within, :maximum, :minimum, or :is option.'
+        end
+
+        # Not need to check equals of this option's keys.
+        # :if, :unless, :tokenize - should be different all time.
+        # :too_long, :too_short, :wrong_length - not important for correct validation
+        delete_keys = [:tokenizer, :too_long, :too_short, :wrong_length, :message, :if, :unless]
+        options.delete_if { |k| delete_keys.include? k }
+
+        actual_options = {}
+
+        Rspec::Matchers::Matcher.new :validate_length_of, attribute do |_attr_|
           match do |model|
-            validates_minimum?(model, min, _attribute_) && 
-              validates_maximum?(model, max, _attribute_)
+            if validator = model.class.validators.find(Proc.new {false}) { |v| v.to_s.demodulize =~ /^LengthValidator/ &&
+                v.attributes.include?(_attr_) }
+              # Same reason
+              options_unfrozen = validator.options.dup
+              options_unfrozen.delete_if { |k| delete_keys.include? k }
+              actual_options = options_unfrozen
+              options_unfrozen.deep_include?(options) && options_unfrozen.keys.sort == options.keys.sort
+            end
           end
 
           failure_message_for_should do |model|
             RspecRailsMatchers::Message.error(
-              :expected => 
-                [ "%s to validate length of %s, %s", model, _attribute_, options ]
+              :expected => [ "%s to validate uniqueness of %s, %s", model, _attr_, options ],
+              :actual   => [ "%s to validate uniqueness of %s, %s", model, _attr_, actual_options]
             )
           end
 
-         
-          def validates_minimum?( model, min, attr )
-            return true if not min
-
-            if min && min >= 1
-              model.send("#{attr}=", 'a' * (min - 1))
-
-              model.invalid? && model.errors[attr].any?
-            end
-          end
-
-          def validates_maximum?( model, max, attr )
-            return true if not max
-
-            if max
-              model.send("#{attr}=", 'a' * (max + 1))
-
-              model.invalid? && model.errors[attr].any?
-            end
-          end
         end
       end
-
-      private
-        def min_max_for( options )
-          if options.has_key? :within
-            min = options[:within].first
-            max = options[:within].last
-          elsif options.has_key? :minimum
-            min = options[:minimum]
-          elsif options.has_key? :maximum
-            max = options[:maximum]
-          end
-
-          return min, max
-        end
     end
   end
 end

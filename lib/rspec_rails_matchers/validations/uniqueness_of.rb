@@ -6,7 +6,8 @@ module RspecRailsMatchers
           options[:case_sensitive] = true if options[:case_sensitive].nil?
           actual_options = {}
           match do |model|
-            if validator = model.class.validators.find(Proc.new {false}) { |v| v.to_s.demodulize =~ /^UniquenessValidator/ && v.attributes.include?(_attr_) }
+            if validator = model.class.validators.find(Proc.new {false}) { |v| v.to_s.demodulize =~ /^UniquenessValidator/ &&
+                v.attributes.include?(_attr_) }
               actual_options = validator.options
               validator.options.deep_include?(options) && validator.options.keys.sort == options.keys.sort
             end
