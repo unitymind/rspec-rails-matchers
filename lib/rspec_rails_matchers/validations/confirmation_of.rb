@@ -4,15 +4,8 @@ module RspecRailsMatchers
       def validate_confirmation_of(attribute)
         Rspec::Matchers::Matcher.new :validate_confirmation_of, attribute do |_attr_|
           match do |model|
-            if model.respond_to?("#{_attr_}_confirmation=")
-              model.send("#{_attr_}=", 'asdf')
-              model.send("#{_attr_}_confirmation=", 'asdfg')
-
-              model.invalid? && 
-                model.errors[_attr_].include?(
-                  I18n::t('errors.messages.confirmation')
-                )
-            end
+            model.class.validators.detect(Proc.new {false}) { |v| v.to_s.demodulize =~ /^ConfirmationValidator/ &&
+                v.attributes.include?(_attr_) }
           end
 
           failure_message_for_should do |model|

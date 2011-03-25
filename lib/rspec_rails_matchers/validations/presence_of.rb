@@ -4,8 +4,8 @@ module RspecRailsMatchers
       def validate_presence_of(attribute)
         Rspec::Matchers::Matcher.new :validate_presence_of, attribute do |_attr_|
           match do |model|
-            model.send("#{_attr_}=", nil)
-            model.invalid? && model.errors[_attr_].any?
+            model.class.validators.detect(Proc.new {false}) { |v| v.to_s.demodulize =~ /^PresenceValidator/ &&
+                v.attributes.include?(_attr_) }
           end
 
           failure_message_for_should do |model|
